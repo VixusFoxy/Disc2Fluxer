@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -143,6 +144,10 @@ def diff_structures(source: GuildStructure, dest: GuildStructure) -> DiffResult:
     return result
 
 
+class SyncCancelled(Exception):
+    pass
+
+
 def sync(
     discord: DiscordAPI,
     fluxer: FluxerAPI,
@@ -154,6 +159,7 @@ def sync(
     progress_fn: ProgressFn | None = None,
     selected_role_names: set[str] | None = None,
     selected_channel_ids: set[str] | None = None,
+    cancel_event: "threading.Event | None" = None,
 ) -> DiffResult:
     """Run a full sync from Discord source to Fluxer destination.
 
@@ -176,6 +182,10 @@ def sync(
         progress_count += 1
         if progress_fn:
             progress_fn(progress_count, progress_total)
+
+    def check_cancel() -> None:
+        if cancel_event and cancel_event.is_set():
+            raise SyncCancelled()
 
     if source is None:
         emit("Fetching Discord guild structure...")
@@ -213,6 +223,7 @@ def sync(
 
     # Update matched roles that differ (hoist, color, permissions, mentionable).
     for src_role, dst_role in diff.matched_roles:
+        check_cancel()
         masked = mask_permissions(src_role.permissions)
         updates: dict = {}
         if src_role.hoist != dst_role.hoist:
@@ -234,19 +245,27 @@ def sync(
 
     # Create missing roles (skip @everyone — it always exists).
     for role in diff.unsynced_roles:
+        check_cancel()
         if role.name == "@everyone":
             continue
         masked = mask_permissions(role.permissions)
         emit(f"  Creating role: {role.name} (perms={masked:#x})")
         try:
+            # Fluxer create only accepts name, permissions, color.
+            # hoist and mentionable must be set via update.
             created = fluxer.create_role(
                 dest_guild_id,
                 name=role.name,
                 color=role.color,
-                hoist=role.hoist,
                 permissions=masked,
-                mentionable=role.mentionable,
             )
+            update_fields: dict = {}
+            if role.hoist:
+                update_fields["hoist"] = True
+            if role.mentionable:
+                update_fields["mentionable"] = True
+            if update_fields:
+                fluxer.update_role(dest_guild_id, created.id, **update_fields)
             role_map[role.name] = created.id
             dest.roles.append(created)
         except Exception as e:
@@ -283,6 +302,7 @@ def sync(
     children = [ch for ch in diff.unsynced_channels if ch.type != 4]
 
     for cat in sorted(categories, key=lambda c: c.position):
+        check_cancel()
         emit(f"  Creating category: {cat.name} (pos={cat.position})")
         try:
             overwrites = _remap_overwrites(cat, src_role_by_id, role_map, emit)
@@ -302,6 +322,7 @@ def sync(
 
     # Create child channels.
     for ch in sorted(children, key=lambda c: c.position):
+        check_cancel()
         parent_name = src_parents.get(ch.parent_id)
         parent_fluxer_id = channel_map.get(parent_name) if parent_name else None
         type_label = {0: "#", 2: "\U0001f508"}.get(ch.type, "?")

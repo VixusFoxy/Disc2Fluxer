@@ -9,7 +9,7 @@ from discord_to_fluxer import config, __version__
 from discord_to_fluxer.discord_api import DiscordAPI
 from discord_to_fluxer.fluxer_api import FluxerAPI
 from discord_to_fluxer.models import GuildInfo, GuildSettings, GuildStructure
-from discord_to_fluxer.syncer import diff_structures, sync, DiffResult
+from discord_to_fluxer.syncer import diff_structures, sync, DiffResult, SyncCancelled
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
@@ -141,6 +141,9 @@ class App:
         # Spinner state for log activity lines.
         self._spinner_after_id: str | None = None
         self._spinner_idx: int = 0
+
+        # Cancellation event for sync.
+        self._cancel_event = threading.Event()
 
         self._apply_dark_theme()
         self._build_ui()
@@ -314,6 +317,9 @@ class App:
         self.sync_btn = ttk.Button(btn_bar, text="SYNC", command=self._on_sync,
                                     state="disabled")
         self.sync_btn.pack(side="left", padx=4)
+        self.stop_btn = ttk.Button(btn_bar, text="STOP", command=self._on_stop,
+                                    state="disabled")
+        self.stop_btn.pack(side="left", padx=4)
 
         # Track checkbox states: iid -> BooleanVar.
         # Items tagged "synced" are already on dest (non-togglable).
@@ -467,14 +473,21 @@ class App:
             self.log_text.insert(ranges[-2], "\u2713", "done")
         self.log_text.configure(state="disabled")
 
+    def _on_stop(self) -> None:
+        self._cancel_event.set()
+        self._log("Sync cancelled by user.")
+        self._set_status("Cancelling...")
+
     def _set_status(self, msg: str) -> None:
         self.root.after(0, lambda: self.status_var.set(msg))
 
     def _set_busy(self, busy: bool) -> None:
         state = "disabled" if busy else "normal"
+        stop_state = "normal" if busy else "disabled"
         def _update():
             self.load_btn.configure(state=state)
             self.sync_btn.configure(state=state)
+            self.stop_btn.configure(state=stop_state)
         self.root.after(0, _update)
 
     def _set_progress(self, current: int, total: int) -> None:
@@ -821,10 +834,26 @@ class App:
         return names
 
     def _get_selected_channel_ids(self) -> set[str]:
-        """Get IDs of channels selected for sync."""
+        """Get IDs of channels selected for sync.
+
+        If a category is unchecked, all its children are excluded
+        regardless of their individual check state.
+        """
+        # Collect unchecked categories.
+        unchecked_cats = set()
+        for iid, var in self._check_vars.items():
+            if iid.startswith("chan:") and not var.get():
+                tags = self.src_tree.item(iid, "tags")
+                if "category" in tags:
+                    unchecked_cats.add(iid)
+
         ids = set()
         for iid, var in self._check_vars.items():
             if iid.startswith("chan:") and var.get():
+                # Skip children of unchecked categories.
+                parent_iid = self.src_tree.parent(iid)
+                if parent_iid in unchecked_cats:
+                    continue
                 ids.add(iid[5:])
         return ids
 
@@ -875,6 +904,7 @@ class App:
         ):
             return
 
+        self._cancel_event.clear()
         self._set_busy(True)
         self._set_status("Syncing...")
         self.root.after(0, lambda: self.progress_var.set(0))
@@ -907,6 +937,7 @@ class App:
                     progress_fn=_on_progress,
                     selected_role_names=sel_roles,
                     selected_channel_ids=sel_channels,
+                    cancel_event=self._cancel_event,
                 )
                 # Final re-fetch for accurate state.
                 self.source_struct = self.discord.fetch_structure(src_guild.id)
@@ -918,6 +949,9 @@ class App:
                     self.progress_var.set(100)
                 self.root.after(0, _complete)
                 self._set_status("Sync complete")
+            except SyncCancelled:
+                self.root.after(0, self._finish_spinner)
+                self._set_status("Sync cancelled")
             except Exception as e:
                 self.root.after(0, self._finish_spinner)
                 self._log(f"Sync error: {e}")

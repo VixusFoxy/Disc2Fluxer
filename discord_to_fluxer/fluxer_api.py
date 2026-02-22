@@ -123,14 +123,13 @@ class FluxerAPI:
     # -- write ------------------------------------------------------------
 
     def create_role(self, guild_id: str, *, name: str, color: int = 0,
-                    hoist: bool = False, permissions: int = 0,
-                    mentionable: bool = False) -> Role:
+                    permissions: int = 0) -> Role:
+        # Fluxer create role only accepts name, color, permissions.
+        # hoist and mentionable must be set via update_role.
         body = {
             "name": _sanitize_name(name),
             "color": color,
-            "hoist": hoist,
             "permissions": str(permissions),
-            "mentionable": mentionable,
         }
         data = self._api.post(f"/guilds/{guild_id}/roles", json=body).json()
         return Role(
