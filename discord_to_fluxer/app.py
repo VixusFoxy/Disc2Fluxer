@@ -228,22 +228,26 @@ class App:
         self.discord_token_var = tk.StringVar(value=self.cfg.get("discord_token", ""))
         self.discord_token_entry = ttk.Entry(tok_frame, textvariable=self.discord_token_var, show="*", width=50)
         self.discord_token_entry.grid(row=0, column=1, sticky="ew", padx=4)
+        ttk.Button(tok_frame, text="\U0001f441",  width=3,
+                   command=lambda: self._toggle_reveal(self.discord_token_entry)).grid(row=0, column=2)
         ttk.Button(tok_frame, text="Instructions", style="Guide.TButton",
-                   command=self._show_discord_help).grid(row=0, column=2)
+                   command=self._show_discord_help).grid(row=0, column=3)
 
         ttk.Label(tok_frame, text="Fluxer Bot Token:").grid(row=1, column=0, sticky="w")
         self.fluxer_token_var = tk.StringVar(value=self.cfg.get("fluxer_token", ""))
         self.fluxer_token_entry = ttk.Entry(tok_frame, textvariable=self.fluxer_token_var, show="*", width=50)
         self.fluxer_token_entry.grid(row=1, column=1, sticky="ew", padx=4)
+        ttk.Button(tok_frame, text="\U0001f441", width=3,
+                   command=lambda: self._toggle_reveal(self.fluxer_token_entry)).grid(row=1, column=2)
         ttk.Button(tok_frame, text="Instructions", style="Guide.TButton",
-                   command=self._show_fluxer_help).grid(row=1, column=2)
+                   command=self._show_fluxer_help).grid(row=1, column=3)
 
         ttk.Label(tok_frame, text="Fluxer URL:").grid(row=2, column=0, sticky="w")
         self.fluxer_url_var = tk.StringVar(value=self.cfg.get("fluxer_base_url", "https://api.fluxer.app/v1"))
         ttk.Entry(tok_frame, textvariable=self.fluxer_url_var, width=50).grid(row=2, column=1, sticky="ew", padx=4)
 
         save_btn = ttk.Button(tok_frame, text="Save & Connect", command=self._on_save_connect)
-        save_btn.grid(row=0, column=3, rowspan=3, padx=(8, 0), sticky="ns")
+        save_btn.grid(row=0, column=4, rowspan=3, padx=(8, 0), sticky="ns")
 
         tok_frame.columnconfigure(1, weight=1)
 
@@ -396,6 +400,12 @@ class App:
         text.pack(side="left", fill="both", expand=True)
 
         ttk.Button(win, text="Close", command=win.destroy).pack(pady=(0, 8))
+
+    def _toggle_reveal(self, entry: ttk.Entry) -> None:
+        if entry.cget("show") == "*":
+            entry.configure(show="")
+        else:
+            entry.configure(show="*")
 
     def _show_usage_guide(self) -> None:
         self._show_help_window("Usage Guide", _USAGE_GUIDE)
