@@ -349,7 +349,6 @@ class App:
         win.geometry("640x540")
         win.configure(bg=self._BG)
         win.transient(self.root)
-        win.grab_set()
 
         text = tk.Text(win, wrap="word", font=("sans-serif", 10), padx=12, pady=12,
                        spacing1=2, spacing3=2)
