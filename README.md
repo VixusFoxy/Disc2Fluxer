@@ -1,4 +1,6 @@
-# Discord to Fluxer Sync
+# Disc2Fluxer
+
+[![Build](https://github.com/VixusFoxy/Disc2Fluxer/actions/workflows/build.yml/badge.svg)](https://github.com/VixusFoxy/Disc2Fluxer/actions/workflows/build.yml)
 
 Copy your Discord server's structure (roles, channels, and settings) into a Fluxer community.
 
