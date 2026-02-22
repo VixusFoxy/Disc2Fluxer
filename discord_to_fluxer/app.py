@@ -99,8 +99,8 @@ servers from the dropdowns, then click **Load / Refresh**.
 
 >> 4. Review & select items
 The left panel shows everything on Discord. Items marked
-`[=]` are already synced. Items marked `[x]` are selected
-for sync. Click items to toggle selection.
+`[=]` are already synced. Items marked ✅ are selected
+for sync, ❌ means deselected. Click items to toggle.
 Settings marked `[~]` differ and will be **auto-synced**.
 
 >> 5. Sync
@@ -671,7 +671,7 @@ class App:
         for role in sorted(self.source_struct.roles, key=lambda r: -r.position):
             synced = role.name in matched_role_names
             iid = f"role:{role.id}"
-            mark = "[=]" if synced else "[x]"
+            mark = "[=]" if synced else "\u2705"
             self.src_tree.insert(roles_node, "end", iid=iid, text=f"{mark} {role.name}",
                                  tags=("synced",) if synced else ("unsynced",))
             if not synced:
@@ -691,7 +691,7 @@ class App:
             synced = key in matched_chan_keys
             iid = f"chan:{ch.id}"
             prefix = "#" if ch.type == 0 else "\U0001f508"
-            mark = "[=]" if synced else "[x]"
+            mark = "[=]" if synced else "\u2705"
             self.src_tree.insert(chans_node, "end", iid=iid, text=f"{mark} {prefix} {ch.name}",
                                  tags=("synced",) if synced else ("unsynced",))
             if not synced:
@@ -702,7 +702,7 @@ class App:
             cat_key = _channel_key(cat, None)
             cat_synced = cat_key in matched_chan_keys
             cat_iid = f"chan:{cat.id}"
-            mark = "[=]" if cat_synced else "[x]"
+            mark = "[=]" if cat_synced else "\u2705"
             self.src_tree.insert(chans_node, "end", iid=cat_iid,
                                  text=f"{mark} \U0001f4c1 {cat.name}", open=True,
                                  tags=("synced",) if cat_synced else ("unsynced", "category"))
@@ -716,7 +716,7 @@ class App:
                 synced = key in matched_chan_keys
                 ch_iid = f"chan:{ch.id}"
                 prefix = "#" if ch.type == 0 else "\U0001f508"
-                mark = "[=]" if synced else "[x]"
+                mark = "[=]" if synced else "\u2705"
                 self.src_tree.insert(cat_iid, "end", iid=ch_iid, text=f"{mark} {prefix} {ch.name}",
                                      tags=("synced",) if synced else ("unsynced",))
                 if not synced:
@@ -738,7 +738,7 @@ class App:
             if role.name in matched_role_names:
                 self.dst_tree.insert(roles_node, "end", text=f"[=] {role.name}")
             else:
-                self.dst_tree.insert(roles_node, "end", text=f"[ ] ({role.name})")
+                self.dst_tree.insert(roles_node, "end", text=f"({role.name})")
 
         chans_node = self.dst_tree.insert("", "end", text="Channels", open=True)
         for ch in sorted(orphans, key=lambda c: c.position):
@@ -748,7 +748,7 @@ class App:
                 self.dst_tree.insert(chans_node, "end", text=f"[=] {prefix} {ch.name}")
             else:
                 prefix = "#" if ch.type == 0 else "\U0001f508"
-                self.dst_tree.insert(chans_node, "end", text=f"[ ] ({prefix} {ch.name})")
+                self.dst_tree.insert(chans_node, "end", text=f"({prefix} {ch.name})")
 
         for cat in sorted_cats:
             cat_key = _channel_key(cat, None)
@@ -757,7 +757,7 @@ class App:
                                                 text=f"[=] \U0001f4c1 {cat.name}", open=True)
             else:
                 cat_node = self.dst_tree.insert(chans_node, "end",
-                                                text=f"[ ] (\U0001f4c1 {cat.name})", open=True)
+                                                text=f"(\U0001f4c1 {cat.name})", open=True)
             children = [ch for ch in self.source_struct.channels
                         if ch.parent_id == cat.id and ch.type != 4]
             for ch in sorted(children, key=lambda c: c.position):
@@ -767,7 +767,7 @@ class App:
                     self.dst_tree.insert(cat_node, "end", text=f"[=] {prefix} {ch.name}")
                 else:
                     prefix = "#" if ch.type == 0 else "\U0001f508"
-                    self.dst_tree.insert(cat_node, "end", text=f"[ ] ({prefix} {ch.name})")
+                    self.dst_tree.insert(cat_node, "end", text=f"({prefix} {ch.name})")
 
     # -- Tree checkbox interaction -----------------------------------------
 
@@ -802,12 +802,14 @@ class App:
             return
         old_text = self.src_tree.item(iid, "text")
         checked = self._check_vars[iid].get()
-        new_mark = "[x]" if checked else "[ ]"
-        # Strip the old marker prefix and keep the rest.
-        if old_text.startswith(("[x]", "[ ]", "[=]", "[~]")):
-            rest = old_text[3:]
+        new_mark = "\u2705" if checked else "\u274c"
+        # Strip the old marker prefix (3-char bracket or 1-char emoji).
+        for prefix in ("[x]", "[ ]", "[=]", "[~]", "\u2705", "\u274c"):
+            if old_text.startswith(prefix):
+                rest = old_text[len(prefix):]
+                break
         else:
-            rest = old_text
+            rest = " " + old_text
         self.src_tree.item(iid, text=f"{new_mark}{rest}")
 
     def _select_all(self) -> None:
