@@ -211,14 +211,26 @@ def sync(
 
     # --- Sync roles -------------------------------------------------------
 
-    # Update @everyone permissions if they differ.
-    src_everyone = next((r for r in source.roles if r.name == "@everyone"), None)
-    dst_everyone = next((r for r in dest.roles if r.name == "@everyone"), None)
-    if src_everyone and dst_everyone:
-        masked = mask_permissions(src_everyone.permissions)
-        if masked != mask_permissions(dst_everyone.permissions):
-            emit("Updating @everyone permissions...")
-            fluxer.update_role(dest_guild_id, dst_everyone.id, permissions=masked)
+    # Update matched roles that differ (hoist, color, permissions, mentionable).
+    for src_role, dst_role in diff.matched_roles:
+        masked = mask_permissions(src_role.permissions)
+        updates: dict = {}
+        if src_role.hoist != dst_role.hoist:
+            updates["hoist"] = src_role.hoist
+        if src_role.color != dst_role.color:
+            updates["color"] = src_role.color
+        if masked != mask_permissions(dst_role.permissions):
+            updates["permissions"] = masked
+        if src_role.mentionable != dst_role.mentionable:
+            updates["mentionable"] = src_role.mentionable
+        if updates:
+            fields = ", ".join(updates.keys())
+            emit(f"  Updating role: {src_role.name} ({fields})")
+            try:
+                fluxer.update_role(dest_guild_id, dst_role.id, **updates)
+            except Exception as e:
+                emit(f"  FAILED to update role: {src_role.name} \u2014 {e}")
+                failure_count += 1
 
     # Create missing roles (skip @everyone — it always exists).
     for role in diff.unsynced_roles:
@@ -304,6 +316,8 @@ def sync(
                 parent_id=parent_fluxer_id,
                 topic=ch.topic,
                 nsfw=ch.nsfw,
+                bitrate=ch.bitrate,
+                user_limit=ch.user_limit,
                 permission_overwrites=overwrites,
             )
             channel_map[ch.name] = created.id

@@ -95,6 +95,8 @@ class DiscordAPI:
                     parent_id=ch.get("parent_id"),
                     topic=ch.get("topic"),
                     nsfw=ch.get("nsfw", False),
+                    bitrate=ch.get("bitrate"),
+                    user_limit=ch.get("user_limit"),
                     permission_overwrites=overwrites,
                 )
             )

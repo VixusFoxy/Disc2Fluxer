@@ -113,6 +113,8 @@ class FluxerAPI:
                     parent_id=ch.get("parent_id"),
                     topic=ch.get("topic"),
                     nsfw=ch.get("nsfw", False),
+                    bitrate=ch.get("bitrate"),
+                    user_limit=ch.get("user_limit"),
                     permission_overwrites=overwrites,
                 )
             )
@@ -165,6 +167,8 @@ class FluxerAPI:
                        position: int | None = None,
                        parent_id: str | None = None, topic: str | None = None,
                        nsfw: bool = False,
+                       bitrate: int | None = None,
+                       user_limit: int | None = None,
                        permission_overwrites: list[dict] | None = None) -> Channel:
         body: dict = {"name": _sanitize_name(name), "type": type}
         if position is not None:
@@ -175,6 +179,10 @@ class FluxerAPI:
             body["topic"] = _sanitize_topic(topic)
         if nsfw:
             body["nsfw"] = True
+        if bitrate is not None:
+            body["bitrate"] = bitrate
+        if user_limit is not None:
+            body["user_limit"] = user_limit
         if permission_overwrites:
             body["permission_overwrites"] = permission_overwrites
         data = self._api.post(f"/guilds/{guild_id}/channels", json=body).json()
@@ -186,6 +194,8 @@ class FluxerAPI:
             parent_id=data.get("parent_id"),
             topic=data.get("topic"),
             nsfw=data.get("nsfw", False),
+            bitrate=data.get("bitrate"),
+            user_limit=data.get("user_limit"),
         )
 
     def update_channel_positions(self, guild_id: str, positions: list[dict]) -> None:

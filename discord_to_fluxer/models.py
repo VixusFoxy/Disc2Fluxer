@@ -31,6 +31,8 @@ class Channel:
     parent_id: str | None = None
     topic: str | None = None
     nsfw: bool = False
+    bitrate: int | None = None
+    user_limit: int | None = None
     permission_overwrites: list[PermissionOverwrite] = field(default_factory=list)
 
 

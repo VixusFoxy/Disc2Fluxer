@@ -5,7 +5,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from discord_to_fluxer import config
+from discord_to_fluxer import config, __version__
 from discord_to_fluxer.discord_api import DiscordAPI
 from discord_to_fluxer.fluxer_api import FluxerAPI
 from discord_to_fluxer.models import GuildInfo, GuildSettings, GuildStructure
@@ -121,7 +121,7 @@ A confirmation dialog will show exactly what will be created.
 class App:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        root.title("Discord -> Fluxer Sync")
+        root.title(f"Disc2Fluxer v{__version__}")
         root.minsize(720, 600)
 
         self.cfg = config.load()

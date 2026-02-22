@@ -43,3 +43,9 @@ python -m discord_to_fluxer
 ## Security
 
 Bot tokens are **never saved to disk**. They only exist in memory for the duration of the session.
+
+## Credits
+
+- **Vixus** — project lead
+- **Margo** — testing & feedback
+- **Pura** — testing & feedback
