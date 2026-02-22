@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 import logging
 from typing import Callable
@@ -9,6 +10,9 @@ import httpx
 log = logging.getLogger(__name__)
 
 MAX_RETRIES = 8
+MAX_RETRY_AFTER = 300  # Never sleep longer than 5 minutes on a 429.
+
+_SNOWFLAKE_RE = re.compile(r"^[0-9]+$")
 
 # Errors that indicate the server dropped us (rate limit without a proper 429).
 _RETRIABLE_EXCEPTIONS = (
@@ -20,6 +24,13 @@ _RETRIABLE_EXCEPTIONS = (
 )
 
 LogFn = Callable[[str], None]
+
+
+def validate_snowflake(value: str, label: str = "ID") -> str:
+    """Validate that a value looks like a Discord/Fluxer snowflake ID."""
+    if not _SNOWFLAKE_RE.match(value):
+        raise ValueError(f"Invalid {label}: expected numeric snowflake, got {value!r}")
+    return value
 
 
 class APIClient:
@@ -96,6 +107,7 @@ class APIClient:
                 if retry_after <= 0:
                     retry_after_hdr = resp.headers.get("Retry-After")
                     retry_after = float(retry_after_hdr) if retry_after_hdr else backoff
+                retry_after = min(retry_after, MAX_RETRY_AFTER)
                 self._emit(f"Rate limited on {method} {path}, waiting {retry_after:.1f}s...")
                 time.sleep(retry_after)
                 backoff *= 2

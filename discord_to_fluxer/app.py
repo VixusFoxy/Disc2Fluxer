@@ -5,6 +5,8 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+import httpx
+
 from discord_to_fluxer import config, __version__
 from discord_to_fluxer.discord_api import DiscordAPI
 from discord_to_fluxer.fluxer_api import FluxerAPI
@@ -500,10 +502,26 @@ class App:
     def _on_save_connect(self) -> None:
         self.cfg["discord_token"] = self.discord_token_var.get().strip()
         self.cfg["fluxer_token"] = self.fluxer_token_var.get().strip()
-        self.cfg["fluxer_base_url"] = self.fluxer_url_var.get().strip()
+        url = self.fluxer_url_var.get().strip()
+
+        # Validate Fluxer URL scheme.
+        if url and not url.startswith("https://"):
+            if url.startswith("http://"):
+                if not messagebox.askyesno(
+                    "Security Warning",
+                    "The Fluxer URL uses HTTP instead of HTTPS.\n"
+                    "Your bot token will be sent in plaintext over the network.\n\n"
+                    "Continue anyway?",
+                ):
+                    return
+            else:
+                messagebox.showerror("Invalid URL", "Fluxer URL must start with https:// (or http:// for local dev).")
+                return
+
+        self.cfg["fluxer_base_url"] = url
         try:
             config.save(self.cfg)
-            self._log("Tokens saved.")
+            self._log("Config saved.")
         except Exception as e:
             self._log(f"Failed to save config: {e}")
             return
@@ -539,8 +557,11 @@ class App:
                     self.sync_btn.configure(state="disabled")
                 self.root.after(0, _connected)
                 self._set_status("Connected")
+            except httpx.HTTPStatusError as e:
+                self._log(f"Connection error: {e.response.status_code} {e.response.reason_phrase}")
+                self._set_status("Connection failed")
             except Exception as e:
-                self._log(f"Connection error: {e}")
+                self._log(f"Connection error: {type(e).__name__}: {e}")
                 self._set_status("Connection failed")
 
         threading.Thread(target=_work, daemon=True).start()
@@ -581,8 +602,11 @@ class App:
                 diff = diff_structures(self.source_struct, self.dest_struct)
                 self.root.after(0, lambda: self._render_panels(diff))
                 self._set_status("Loaded")
+            except httpx.HTTPStatusError as e:
+                self._log(f"Load error: {e.response.status_code} {e.response.reason_phrase}")
+                self._set_status("Load failed")
             except Exception as e:
-                self._log(f"Load error: {e}")
+                self._log(f"Load error: {type(e).__name__}: {e}")
                 self._set_status("Load failed")
             finally:
                 self._set_busy(False)
@@ -954,9 +978,13 @@ class App:
             except SyncCancelled:
                 self.root.after(0, self._finish_spinner)
                 self._set_status("Sync cancelled")
+            except httpx.HTTPStatusError as e:
+                self.root.after(0, self._finish_spinner)
+                self._log(f"Sync error: {e.response.status_code} {e.response.reason_phrase}")
+                self._set_status("Sync failed")
             except Exception as e:
                 self.root.after(0, self._finish_spinner)
-                self._log(f"Sync error: {e}")
+                self._log(f"Sync error: {type(e).__name__}: {e}")
                 self._set_status("Sync failed")
             finally:
                 self._set_busy(False)

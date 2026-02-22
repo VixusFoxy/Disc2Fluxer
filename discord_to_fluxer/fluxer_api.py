@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import html
 import re
 
-from discord_to_fluxer.api_client import APIClient
+from discord_to_fluxer.api_client import APIClient, validate_snowflake
 from discord_to_fluxer.models import (
     Channel,
     GuildInfo,
@@ -59,6 +58,7 @@ class FluxerAPI:
         return [GuildInfo(id=g["id"], name=g["name"]) for g in data]
 
     def fetch_structure(self, guild_id: str) -> GuildStructure:
+        validate_snowflake(guild_id, "guild_id")
         guild_data = self._api.get(f"/guilds/{guild_id}").json()
         guild = GuildInfo(id=guild_data.get("id", guild_id), name=guild_data.get("name", ""))
 
@@ -124,6 +124,7 @@ class FluxerAPI:
 
     def create_role(self, guild_id: str, *, name: str, color: int = 0,
                     permissions: int = 0) -> Role:
+        validate_snowflake(guild_id, "guild_id")
         # Fluxer create role only accepts name, color, permissions.
         # hoist and mentionable must be set via update_role.
         body = {
@@ -143,6 +144,8 @@ class FluxerAPI:
         )
 
     def update_role(self, guild_id: str, role_id: str, **fields) -> None:
+        validate_snowflake(guild_id, "guild_id")
+        validate_snowflake(role_id, "role_id")
         body = {}
         if "name" in fields:
             body["name"] = _sanitize_name(fields["name"])
@@ -159,6 +162,7 @@ class FluxerAPI:
 
     def update_role_positions(self, guild_id: str, positions: list[dict]) -> None:
         """positions: [{"id": role_id, "position": int}, ...]"""
+        validate_snowflake(guild_id, "guild_id")
         if positions:
             self._api.patch(f"/guilds/{guild_id}/roles", json=positions)
 
@@ -169,6 +173,9 @@ class FluxerAPI:
                        bitrate: int | None = None,
                        user_limit: int | None = None,
                        permission_overwrites: list[dict] | None = None) -> Channel:
+        validate_snowflake(guild_id, "guild_id")
+        if parent_id is not None:
+            validate_snowflake(parent_id, "parent_id")
         body: dict = {"name": _sanitize_name(name), "type": type}
         if position is not None:
             body["position"] = position
@@ -199,14 +206,18 @@ class FluxerAPI:
 
     def update_channel_positions(self, guild_id: str, positions: list[dict]) -> None:
         """positions: [{"id": ch_id, "position": int}, ...]"""
+        validate_snowflake(guild_id, "guild_id")
         if positions:
             self._api.patch(f"/guilds/{guild_id}/channels", json=positions)
 
     def update_guild_settings(self, guild_id: str, **fields) -> None:
+        validate_snowflake(guild_id, "guild_id")
         if fields:
             self._api.patch(f"/guilds/{guild_id}", json=fields)
 
     def set_permission_overwrite(self, channel_id: str, overwrite_id: str,
                                  *, type: int, allow: int, deny: int) -> None:
+        validate_snowflake(channel_id, "channel_id")
+        validate_snowflake(overwrite_id, "overwrite_id")
         body = {"type": type, "allow": str(allow), "deny": str(deny)}
         self._api.put(f"/channels/{channel_id}/permissions/{overwrite_id}", json=body)

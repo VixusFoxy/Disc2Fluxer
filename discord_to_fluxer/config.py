@@ -23,8 +23,11 @@ def load() -> dict:
     return dict(_DEFAULTS)
 
 
+_SAFE_KEYS = {"fluxer_base_url"}
+
+
 def save(data: dict) -> None:
-    # Never persist tokens to disk.
-    safe = {k: v for k, v in data.items() if "token" not in k}
+    # Only persist known-safe keys to disk. Tokens are never written.
+    safe = {k: v for k, v in data.items() if k in _SAFE_KEYS}
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     CONFIG_FILE.write_text(json.dumps(safe, indent=2))

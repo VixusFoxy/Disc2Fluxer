@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from discord_to_fluxer.api_client import APIClient
+from discord_to_fluxer.api_client import APIClient, validate_snowflake
 from discord_to_fluxer.models import (
     Channel,
     GuildInfo,
@@ -36,6 +36,7 @@ class DiscordAPI:
         return [GuildInfo(id=g["id"], name=g["name"]) for g in data]
 
     def fetch_structure(self, guild_id: str) -> GuildStructure:
+        validate_snowflake(guild_id, "guild_id")
         guild_data = self._api.get(f"/guilds/{guild_id}").json()
         guild = GuildInfo(id=guild_data["id"], name=guild_data["name"])
 
