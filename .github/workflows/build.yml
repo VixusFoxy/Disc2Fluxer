@@ -1,0 +1,57 @@
+name: Build Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+            artifact: discord-to-fluxer
+          - os: windows-latest
+            name: windows
+            artifact: discord-to-fluxer.exe
+          - os: macos-latest
+            name: macos
+            artifact: discord-to-fluxer
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      - name: Build binary
+        run: |
+          pyinstaller --onefile --windowed --name discord-to-fluxer discord_to_fluxer/__main__.py
+
+      - name: Rename artifact
+        shell: bash
+        run: |
+          cd dist
+          if [ "${{ matrix.name }}" != "windows" ]; then
+            mv discord-to-fluxer discord-to-fluxer-${{ matrix.name }}
+          else
+            mv discord-to-fluxer.exe discord-to-fluxer-windows.exe
+          fi
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/discord-to-fluxer-*
